@@ -1,18 +1,17 @@
 import os
-from urllib.parse import urlparse
 from flask import Flask, request, jsonify
 from sqlalchemy import create_engine, text
-from sqlalchemy.exc import OperationalError
 
 app = Flask(__name__)
 
-# --- DB URL (Render te da DATABASE_URL). Arreglamos prefijo postgres:// → postgresql+psycopg2://
+# --- Render da DATABASE_URL en formato postgres://, aquí lo arreglamos
 raw_db_url = os.getenv("DATABASE_URL", "sqlite:///local.db")
 if raw_db_url.startswith("postgres://"):
     raw_db_url = raw_db_url.replace("postgres://", "postgresql+psycopg2://", 1)
 
 engine = create_engine(raw_db_url, pool_pre_ping=True)
 
+# Crear tabla si no existe
 def init_db():
     with engine.begin() as conn:
         conn.execute(text("""
@@ -25,18 +24,11 @@ def init_db():
         """))
 
 @app.get("/")
-def health():
-    # Comprobación rápida de conexión
-    try:
-        with engine.connect() as conn:
-            conn.execute(text("SELECT 1"))
-        return {"ok": True, "message": "Flask + Postgres listos 👌"}, 200
-    except OperationalError as e:
-        return {"ok": False, "error": str(e)}, 500
+def home():
+    return {"ok": True, "message": "Flask + Postgres listos 👌"}
 
 @app.post("/init-db")
 def route_init_db():
-    # Pequeña protección con token opcional
     token = request.headers.get("X-Init-Token")
     expected = os.getenv("INIT_TOKEN")
     if expected and token != expected:
